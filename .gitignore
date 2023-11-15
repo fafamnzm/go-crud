@@ -1,0 +1,30 @@
+# Environment Variables
+.env
+
+# Compiled binaries and executables:
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Auto-generated files and directories:
+/bin
+/vendor
+
+# Editor-specific files:
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+
+# OS-specific files
+Thumbs.db
+.DS_Store
