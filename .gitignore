@@ -17,6 +17,7 @@
 .idea/
 *.swp
 *.swo
+launch.json
 
 # Log files
 *.log

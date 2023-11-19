@@ -1,6 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -22,16 +26,91 @@ func UserRoutes(router fiber.Router, db *gorm.DB) {
 		return c.JSON(users)
 	})
 
-	//? Create a user
-	router.Post("/users", func(c *fiber.Ctx) error {
+	//? Generate OTP and email or sms it
+	router.Post("/generateOTP", func(c *fiber.Ctx) error {
+		//? Parse request body into User struct
 		user := new(User)
 		if err := c.BodyParser(user); err != nil {
 			return err
 		}
-		result := db.Create(&user)
-		if result.Error != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString(result.Error.Error())
+
+		//? Generate a random number
+		otpNumber := strconv.Itoa(generateRandomNumber())
+
+		// Create a new instance of the OTPVerification struct
+		otpVerification = OTPVerification{
+			Email: user.Email,
+			OTP:   otpNumber,
 		}
+
+		//? Print the token to the console similar to emailing or sending an sms
+		fmt.Println("Generated Token:", otpVerification)
+
+		//? Return the random number in the response
+		return c.JSON(fiber.Map{
+			"message": "OTP number sent",
+		})
+	})
+
+	router.Post("/verifyOTP", func(c *fiber.Ctx) error {
+		//? Parse request body into VerificationRequest struct
+		request := new(OTPVerification)
+		if err := c.BodyParser(request); err != nil {
+			return err
+		}
+
+		//? Compare the received OTP with the stored OTP
+		if request.Email == otpVerification.Email && request.OTP == otpVerification.OTP {
+			//? Check newUser in db and create it if not
+			var newUser User
+			if err := db.Where("email = ?", request.Email).First(&newUser).Error; err != nil {
+				//? In case the user doesn't exist, add it to the database
+				newUser = User{
+					Email: request.Email,
+					//? Set other user fields as needed
+				}
+				if err := db.Create(&newUser).Error; err != nil {
+					//? Handle the error
+					return err
+				}
+			}
+
+			//? Generate JWT token
+			tokenString, err := generateJWTToken(newUser)
+			if err != nil {
+				return err
+			}
+
+			//? Send the JWT token in the response
+			return c.JSON(fiber.Map{
+				"token": tokenString,
+			})
+		} else {
+			return c.SendString("Invalid OTP")
+		}
+	})
+
+	router.Get("/me", func(c *fiber.Ctx) error {
+		//? Extract bearer token from request headers
+		authHeader := c.Get("Authorization")
+		tokenString := strings.Split(authHeader, "Bearer ")[1]
+
+		//? Verify the JWT token
+		claims, err := verifyJWTToken(tokenString)
+		if err != nil {
+			//? Invalid token handler
+			return c.Status(fiber.StatusUnauthorized).SendString("Invalid token")
+		}
+
+		//? Get the user's id from the claims
+		id := claims.ID
+
+		//? Retrieve user from the database using the id
+		var user User
+		if err := db.Where("id = ?", id).First(&user).Error; err != nil {
+			return c.Status(fiber.StatusNotFound).SendString("User not found")
+		}
+
 		return c.JSON(user)
 	})
 
