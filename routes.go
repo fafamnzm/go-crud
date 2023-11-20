@@ -37,10 +37,14 @@ func UserRoutes(router fiber.Router, db *gorm.DB) {
 		//? Generate a random number
 		otpNumber := strconv.Itoa(generateRandomNumber())
 
-		// Create a new instance of the OTPVerification struct
-		otpVerification = OTPVerification{
+		//? Create a new instance of the OTPVerification struct
+		otpVerification := &OTPVerification{
 			Email: user.Email,
 			OTP:   otpNumber,
+		}
+
+		if err := setOtpVerification(CommonCache, user.Email, otpVerification); err != nil {
+			return err
 		}
 
 		//? Print the token to the console similar to emailing or sending an sms
@@ -57,6 +61,11 @@ func UserRoutes(router fiber.Router, db *gorm.DB) {
 		request := new(OTPVerification)
 		if err := c.BodyParser(request); err != nil {
 			return err
+		}
+
+		otpVerification, err := getOtpVerification(CommonCache, request.Email)
+		if err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": err.Error()})
 		}
 
 		//? Compare the received OTP with the stored OTP
@@ -86,7 +95,7 @@ func UserRoutes(router fiber.Router, db *gorm.DB) {
 				"token": tokenString,
 			})
 		} else {
-			return c.SendString("Invalid OTP")
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"message": "Invalid OTP"})
 		}
 	})
 

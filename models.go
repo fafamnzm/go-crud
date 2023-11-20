@@ -1,6 +1,8 @@
 package main
 
 import (
+	"sync"
+
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -23,4 +25,14 @@ type User struct {
 	ID    uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()"`
 	Name  string
 	Email string
+}
+
+type Cache interface {
+	Set(key string, value interface{}) error
+	Get(key string) (interface{}, error)
+	Delete(key string)
+}
+
+type CacheStruct struct {
+	cache *sync.Map
 }

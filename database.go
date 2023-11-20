@@ -1,14 +1,43 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"sync"
+	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+var CommonCache = &CacheStruct{cache: &sync.Map{}}
+
+// ? in case we want to use redis
+func setupRedisClient() *redis.Client {
+	client := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379", // Replace with your Redis server address
+		Password: "",               // Replace with your Redis password (if applicable)
+		DB:       0,                // Replace with your Redis database index
+	})
+
+	// Create a context with timeout of 5 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Ping the Redis server with the context to check the connection
+	pong, err := client.Ping(ctx).Result()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Connected to Redis: ", pong)
+
+	return client
+}
 
 func ConnectToDB() *gorm.DB {
 	//? Get the environment variables
@@ -53,5 +82,7 @@ func ConnectToDB() *gorm.DB {
 		log.Fatalf("Failed to auto-migrate User model: %v", err)
 	}
 
-	return db
+	// redisClient := setupRedisClient()
+
+	return db //, redisClient
 }
